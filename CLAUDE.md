@@ -48,9 +48,15 @@ Both share the same policy, reason codes (`payer_sanctioned`, `payer_needs_revie
 - **Steps.** Bump `typescript/packages/*/package.json` and/or `python/pyproject.toml`, then push an `sdk-v*` tag or run **Publish** (`.github/workflows/publish.yml`, inputs `publish_npm`, `publish_pypi`, `dry_run`).
 - **Auth.** Trusted publishing (OIDC) on both registries; no secrets.
 - **npm details.** npm 11.21.1 is installed in the job, because Node 22 bundles npm 10. Each package is `pnpm pack`ed (which rewrites `workspace:*`) and published with `--provenance`. Provenance needs this repo public, and each package.json `repository.url` must name it.
-- **Trusted publishers.** On npmjs.com and PyPI they must be credprotocol / cred-sdk / `publish.yml`. npm expires a new trusted publisher that has not published within 2 days, so create it and publish in the same sitting.
+- **Trusted publishers.** On npmjs.com and PyPI they must be credprotocol / cred-sdk / `publish.yml` / environment `release`. The `release` environment admits only `main` and `sdk-v*` tags, and a tag ruleset lets only admins create `sdk-v*` tags. npm expires a new trusted publisher that has not published within 2 days, so create it and publish in the same sitting.
 - **Already published.** Versions already on a registry are skipped.
 - **January 2027.** npm restricts direct `npm publish` then. Before that, move to `npm stage publish` + approval.
+
+## Repository settings
+
+- **Rulesets.** `main: CI gate` (PR + squash only + the three CI checks, strict) and `release tags: admins only` (`sdk-v*`). Admins bypass both.
+- **Security features.** Secret scanning with push protection, Dependabot security updates, CodeQL default setup, and private vulnerability reporting (see `SECURITY.md`) are on.
+- **Workflow token.** Read-only by default, so workflows declare their own permissions.
 
 ## Conventions
 
