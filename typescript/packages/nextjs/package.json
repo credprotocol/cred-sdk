@@ -34,7 +34,7 @@
   },
   "devDependencies": {
     "next": "^15.5.28",
-    "tsup": "^8.0.0",
+    "tsup": "^9.0.0",
     "typescript": "^5.4.0",
     "vite": "^8.3.5",
     "vitest": "^5.0.5"
