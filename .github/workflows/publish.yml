@@ -3,13 +3,17 @@
 #
 #   npm  — each @cred-protocol/* package on npmjs.com has a GitHub Actions
 #          trusted publisher: owner credprotocol, repository cred-sdk,
-#          workflow publish.yml, `npm publish` allowed. npm expires a new
+#          workflow publish.yml, environment release, `npm publish` allowed. npm expires a new
 #          trusted publisher that has not published within 2 days, so publish
 #          right after (re)creating one. Packages carry provenance, which
 #          needs this repository to be public and each package.json
 #          `repository.url` to name it.
 #   PyPI — pypi.org → cred-protocol → Publishing: trusted publisher with the
-#          same owner / repository / workflow.
+#          same owner / repository / workflow / environment.
+#
+# Both jobs run in the `release` environment, whose deployment policy admits
+# only `main` and `sdk-v*` tags (and sdk-v* tags can only be created by
+# admins), so a hand-run of this workflow from another branch cannot publish.
 #
 # Version bumps go in typescript/packages/*/package.json and
 # python/pyproject.toml. Both jobs skip a version that is already on the
@@ -43,6 +47,8 @@ permissions:
 jobs:
   npm:
     name: npm (@cred-protocol/*)
+    # Runs only from main or an sdk-v* tag (environment deployment policy)
+    environment: release
     if: ${{ github.event_name == 'push' || inputs.publish_npm }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -93,6 +99,8 @@ jobs:
 
   pypi:
     name: PyPI (cred-protocol)
+    # Runs only from main or an sdk-v* tag (environment deployment policy)
+    environment: release
     if: ${{ github.event_name == 'push' || inputs.publish_pypi }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
