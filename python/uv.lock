@@ -89,9 +89,9 @@ provides-extras = ["fastapi", "x402"]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "pytest", specifier = "==8.3.5" },
-    { name = "pytest-asyncio", specifier = "==0.24.0" },
-    { name = "x402", specifier = "==2.25.0" },
+    { name = "pytest", specifier = ">=8.3.5,<9" },
+    { name = "pytest-asyncio", specifier = ">=0.24.0,<1.5" },
+    { name = "x402", specifier = ">=2.25.0,<3" },
 ]
 
 [[package]]
