@@ -1,0 +1,28 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: sunday
+    groups:
+      actions-minor-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /typescript
+    schedule:
+      interval: weekly
+      day: sunday
+    groups:
+      typescript-minor-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: uv
+    directory: /python
+    schedule:
+      interval: weekly
+      day: sunday
+    groups:
+      python-minor-patch:
+        update-types: [minor, patch]

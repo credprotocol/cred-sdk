@@ -1,0 +1,123 @@
+# Publish the SDKs to npm and PyPI through trusted publishing (OIDC), no
+# secrets. Manual (workflow_dispatch) or tag-driven (`sdk-v*`).
+#
+#   npm  — each @cred-protocol/* package on npmjs.com has a GitHub Actions
+#          trusted publisher: owner credprotocol, repository cred-sdk,
+#          workflow publish.yml, `npm publish` allowed. npm expires a new
+#          trusted publisher that has not published within 2 days, so publish
+#          right after (re)creating one. Packages carry provenance, which
+#          needs this repository to be public and each package.json
+#          `repository.url` to name it.
+#   PyPI — pypi.org → cred-protocol → Publishing: trusted publisher with the
+#          same owner / repository / workflow.
+#
+# Version bumps go in typescript/packages/*/package.json and
+# python/pyproject.toml. Both jobs skip a version that is already on the
+# registry, so a release that bumps only some packages is safe.
+
+name: Publish
+
+on:
+  push:
+    tags:
+      - "sdk-v*"
+  workflow_dispatch:
+    inputs:
+      publish_npm:
+        description: "Publish the TypeScript packages to npm"
+        type: boolean
+        default: true
+      publish_pypi:
+        description: "Publish the Python package to PyPI"
+        type: boolean
+        default: true
+      dry_run:
+        description: "Build and pack only; do not publish"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  id-token: write # OIDC for trusted publishing and npm provenance
+
+jobs:
+  npm:
+    name: npm (@cred-protocol/*)
+    if: ${{ github.event_name == 'push' || inputs.publish_npm }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: typescript
+    steps:
+      - uses: actions/checkout@v7
+      # Pinned to match ci.yml: pnpm >= 11.20 requires Node builtins newer than the runner's Node
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.5.0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: typescript/pnpm-lock.yaml
+          registry-url: https://registry.npmjs.org
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm -r build
+      - run: pnpm -r typecheck
+      - run: pnpm -r test
+      # Trusted publishing needs npm >= 11.5.1; Node 22 bundles npm 10.
+      - run: npm install -g npm@11.21.1
+      # pnpm pack rewrites the adapters' workspace:* ranges to real versions.
+      - name: Pack
+        run: |
+          mkdir -p "$RUNNER_TEMP/tarballs"
+          for dir in packages/*/; do
+            (cd "$dir" && pnpm pack --pack-destination "$RUNNER_TEMP/tarballs")
+          done
+          ls -l "$RUNNER_TEMP/tarballs"
+      - name: Publish (trusted publishing, with provenance)
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
+        run: |
+          for dir in packages/*/; do
+            name=$(node -p "require('./${dir}package.json').name")
+            version=$(node -p "require('./${dir}package.json').version")
+            # Unauthenticated registry read: exits non-zero on a 404.
+            if curl -sfo /dev/null "https://registry.npmjs.org/${name/\//%2f}/${version}"; then
+              echo "${name}@${version} is already published, skipping"
+              continue
+            fi
+            tarball="$RUNNER_TEMP/tarballs/$(echo "${name#@}" | tr '/' '-')-${version}.tgz"
+            # --access public: scoped packages default to restricted
+            npm publish "$tarball" --access public --provenance
+          done
+
+  pypi:
+    name: PyPI (cred-protocol)
+    if: ${{ github.event_name == 'push' || inputs.publish_pypi }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: python
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.13"
+      - run: uv run --locked --extra x402 pytest -q
+      - run: uv build
+      - name: Check distribution
+        run: uvx twine check dist/*
+      - name: Is this version already on PyPI?
+        id: pypi
+        run: |
+          version=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+          if curl -sfo /dev/null "https://pypi.org/pypi/cred-protocol/${version}/json"; then
+            echo "cred-protocol ${version} is already published, skipping"
+            echo "published=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Publish (trusted publishing)
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.dry_run) && steps.pypi.outputs.published == 'false' }}
+        run: uv publish --trusted-publishing always
