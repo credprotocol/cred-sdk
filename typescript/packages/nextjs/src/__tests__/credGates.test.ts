@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server';
+import { NextRequest } from 'next/server.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { credGates } from '../index';
 import type { TrustResult } from '../index';
