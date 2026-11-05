@@ -1,4 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+// The .js extension lets plain Node ESM (e.g. a user's test runner) resolve
+// the import: Next.js ships no package `exports` map. Bundlers accept both.
+import { NextRequest, NextResponse } from 'next/server.js';
 import { createGate, notifyEvaluation, walletFromRequest } from '@cred-protocol/sdk';
 import type {
   CredGateConfig,
